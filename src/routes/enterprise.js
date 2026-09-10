@@ -173,14 +173,23 @@ router.post('/schools', async (req, res) => {
 
     await client.query('COMMIT');
 
-    // 4. Send email with password setup link
+    // 4. Send email with password setup link (non-blocking)
     const setupLink = `${APP_URL}/set-password?token=${token}`;
-    let emailResult = { success: false };
-    try {
-      emailResult = await sendSetPasswordEmail(admin_email, admin_name || `Admin - ${name}`, token, name);
-    } catch (emailErr) {
-      console.error('Email send failed:', emailErr.message);
-    }
+
+    // Fire-and-forget — don't block the response if email fails
+    sendSetPasswordEmail(admin_email, admin_name || `Admin - ${name}`, token, name)
+      .then(result => {
+        if (result.success) {
+          console.log(`✉️  Setup email sent to ${admin_email}`);
+        } else {
+          console.error(`❌ Email failed for ${admin_email}: ${result.error}`);
+        }
+      })
+      .catch(err => console.error('Email send failed:', err.message));
+
+    const emailResult = { success: true };
+
+
 
     res.status(201).json({
       school: school,
